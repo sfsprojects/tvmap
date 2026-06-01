@@ -435,6 +435,7 @@ let activeFilter = 'all';
 let activeId = null;
 let showingHistory = false;
 let searchTimeout = null;
+let aiPrompt = null; // chargé depuis Supabase
 
 // ===================== MAP INIT =====================
 const map = L.map('map', {
@@ -460,12 +461,17 @@ async function apiFetch(path) {
 
 async function loadShows() {
   try {
-    const shows = await apiFetch('shows?select=id,name,color_hex,emoji,status&order=name');
+    // Charger émissions et prompt en parallèle
+    const [shows, promptData] = await Promise.all([
+      apiFetch('shows?select=id,name,color_hex,emoji,status&order=name'),
+      apiFetch('settings?key=eq.ai_search_prompt&select=value').catch(() => null)
+    ]);
     allShows = shows;
+    if (promptData?.[0]?.value) aiPrompt = promptData[0].value;
     renderShowFilters(shows);
     await loadPlaces('all');
   } catch(e) {
-    console.error('Erreur chargement émissions:', e);
+    console.error('Erreur chargement:', e);
     document.getElementById('sidebar-list').innerHTML = `
       <div style="padding:20px;text-align:center;color:var(--muted2);font-size:12px;line-height:1.6;">
         ⚠️ Impossible de charger les données.<br>Vérifiez la connexion Supabase.
@@ -775,15 +781,17 @@ async function triggerAiSearch() {
   btn.disabled = true;
   document.getElementById('ai-status-text').textContent = 'Recherche en cours…';
 
-  const systemPrompt = `Tu es l'assistant de TVMAP, un site qui recense les LIEUX physiques liés aux personnalités des émissions de télévision françaises.
+  const systemPrompt = aiPrompt || `Tu es l'assistant de TVMAP, un site qui recense les LIEUX physiques liés aux personnalités des émissions de télévision françaises.
 
 OBJECTIF : trouver des LIEUX (restaurants, salles de concert, boutiques, lieux de tournage...) associés à la personnalité ou l'émission mentionnée. Pas juste identifier la personne.
 
 Exemples :
-- "gagnant Top Chef 2024" → cherche le restaurant ouvert par le gagnant
-- "Philippe Etchebest" → cherche ses restaurants (Quatrième Mur, etc.)
-- "Vianney The Voice" → cherche ses concerts à venir
-- "Koh-Lanta" → cherche les lieux de tournage
+- "gagnant Top Chef 2024" → cherche qui a gagné Top Chef en 2024 puis trouve son restaurant
+- "Philippe Etchebest" → ses restaurants (Quatrième Mur à Bordeaux, etc.)
+- "Vianney The Voice" → ses prochains concerts
+- "Koh-Lanta 2024" → lieux de tournage de la saison 2024
+
+IMPORTANT : utilise ta recherche web pour trouver des informations récentes et précises. Vérifie les adresses et sites officiels.
 
 Réponds UNIQUEMENT avec ce JSON, sans texte avant ou après :
 {
@@ -793,18 +801,18 @@ Réponds UNIQUEMENT avec ce JSON, sans texte avant ou après :
     "name": "Nom du lieu (pas de la personne)",
     "place_type": "restaurant|concert|event|filming_location|studio|popup|venue|other",
     "is_permanent": true,
-    "address": "adresse complète",
+    "address": "adresse complète vérifiée",
     "city": "ville",
     "country": "France",
     "lat": null,
     "lng": null,
     "description": "description courte et lien avec l'émission",
-    "website_url": "site officiel ou null",
+    "website_url": "site officiel vérifié ou null",
     "person_name": "nom de la personnalité",
     "show_name": "nom de l'émission",
     "season": null,
     "event_date": "YYYY-MM-DD ou null",
-    "sources": [{"url": "...", "title": "...", "excerpt": "...", "source_type": "article|official|social|wiki|other"}]
+    "sources": [{"url": "url réelle trouvée", "title": "titre", "excerpt": "extrait", "source_type": "article|official|social|wiki|other"}]
   }],
   "message": "message court pour l'utilisateur"
 }
