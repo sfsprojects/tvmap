@@ -1,59 +1,45 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { query, systemPrompt } = req.body;
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(500).json({ error: 'Clé API manquante' });
 
+  const { query, systemPrompt } = req.body || {};
+  if (!query) return res.status(400).json({ error: 'Query manquante' });
+
+  const prompt = (systemPrompt || '') + '\n\nRequête : ' + query;
+
+  let rawText = '';
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    const r = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tools: [{ google_search: {} }],
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: systemPrompt + '\n\nRequête : ' + query }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 2048
-          }
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
         })
       }
     );
 
-    const data = await response.json();
+    rawText = await r.text();
 
-    if (!response.ok) {
-      return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini' });
+    if (!r.ok) {
+      return res.status(500).json({ error: 'Gemini error ' + r.status, raw: rawText.slice(0, 300) });
     }
 
-    // Cherche le texte dans toute la structure de la réponse
-    let text = '';
-    const candidates = data.candidates || [];
-    for (const candidate of candidates) {
-      const parts = candidate?.content?.parts || [];
-      for (const part of parts) {
-        if (part.text) text += part.text;
-        // gemini-2.5 peut aussi mettre le texte dans executableCode ou autre
-        if (part.executableCode?.code) text += part.executableCode.code;
-      }
-    }
+    const data = JSON.parse(rawText);
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const text = parts.filter(p => p.text).map(p => p.text).join('');
 
-    // Log la structure pour debug
     if (!text) {
-      return res.status(500).json({
-        error: 'Réponse vide',
-        candidates_count: candidates.length,
-        first_candidate: JSON.stringify(candidates[0]).slice(0, 500)
-      });
+      return res.status(500).json({ error: 'Texte vide', structure: JSON.stringify(data).slice(0, 500) });
     }
 
     return res.status(200).json({ text });
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, raw: rawText.slice(0, 300) });
   }
+}
