@@ -10,7 +10,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tools: [{ google_search: {} }],
+          tools: [{ googleSearch: {} }],
           contents: [
             {
               role: 'user',
@@ -18,9 +18,8 @@ export default async function handler(req, res) {
             }
           ],
           generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json'
+            temperature: 0.2,
+            maxOutputTokens: 2048
           }
         })
       }
@@ -29,7 +28,7 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini' });
+      return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini', status: response.status });
     }
 
     let text = '';
@@ -42,7 +41,10 @@ export default async function handler(req, res) {
     }
 
     if (!text) {
-      return res.status(500).json({ error: 'Réponse vide', raw: JSON.stringify(data).slice(0, 300) });
+      return res.status(500).json({
+        error: 'Réponse vide',
+        debug: JSON.stringify(candidates[0]).slice(0, 800)
+      });
     }
 
     return res.status(200).json({ text });
