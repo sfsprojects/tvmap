@@ -463,15 +463,18 @@ async function loadShows() {
     const shows = await apiFetch('shows?select=id,name,color_hex,emoji,status&order=name');
     allShows = shows;
     renderShowFilters(shows);
+    await loadPlaces('all');
   } catch(e) {
     console.error('Erreur chargement émissions:', e);
-    // Mode démo si pas de Supabase
-    loadDemoData();
+    document.getElementById('sidebar-list').innerHTML = `
+      <div style="padding:20px;text-align:center;color:var(--muted2);font-size:12px;line-height:1.6;">
+        ⚠️ Impossible de charger les données.<br>Vérifiez la connexion Supabase.
+      </div>`;
   }
 }
 
 async function loadPlaces(filter = 'all') {
-  let query = 'places?select=id,name,place_type,is_permanent,address,city,country,lat,lng,description,season,still_active,event_date,status,confidence_score,website_url,show_id,person_id,shows(name,color_hex,emoji),people(full_name,role)&lat=not.is.null&lng=not.is.null';
+  let query = 'places?select=id,name,place_type,is_permanent,address,city,country,lat,lng,description,season,still_active,event_date,status,confidence_score,website_url,show_id,person_id,shows(name,color_hex,emoji),people(full_name,role)';
   if (filter !== 'all') query += `&show_id=eq.${filter}`;
   if (!showingHistory) {
     query += '&status=in.(validated,pending,uncertain)';
@@ -959,31 +962,6 @@ async function submitAiResults(query, result) {
   } catch(e) { console.warn('Erreur sauvegarde:', e); }
 }
 
-// ===================== DEMO DATA =====================
-function loadDemoData() {
-  allShows = [
-    { id: '1', name: 'Top Chef', color_hex: '#FF4C00', emoji: '👨‍🍳', status: 'validated' },
-    { id: '2', name: 'Koh-Lanta', color_hex: '#00B890', emoji: '🌴', status: 'validated' },
-    { id: '3', name: 'The Voice', color_hex: '#6C47FF', emoji: '🎤', status: 'validated' },
-  ];
-  renderShowFilters(allShows);
-
-  allPlaces = [
-    { id:'p1', name:'Mallory Gabsi', place_type:'restaurant', is_permanent:true, city:'Paris', address:'28 Rue des Acacias, Paris 17e', lat:48.876754, lng:2.291518, description:'1 étoile Michelin. Restaurant du chef emblématique de Top Chef 2020.', website_url:'https://www.mallorygabsi.com', status:'validated', confidence_score:.97, season:11, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Mallory Gabsi',role:'candidate'} },
-    { id:'p2', name:'ANONA', place_type:'restaurant', is_permanent:true, city:'Paris', address:'80 Bd des Batignolles, Paris 17e', lat:48.881961, lng:2.318660, description:'1 étoile Michelin. Cuisine végétale gastronomique.', website_url:'https://www.restaurant-anona.fr', status:'validated', confidence_score:.95, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Thibaut Spiwack',role:'candidate'} },
-    { id:'p3', name:'La Scène', place_type:'restaurant', is_permanent:true, city:'Paris', address:'32 Av. Matignon, Paris 8e', lat:48.872063, lng:2.314563, description:'2 étoiles Michelin. Table de la gagnante de Top Chef saison 2.', website_url:'https://www.la-scene.paris', status:'validated', confidence_score:.99, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Stéphanie Le Quellec',role:'winner'} },
-    { id:'p4', name:'Ambos', place_type:'restaurant', is_permanent:true, city:'Paris', address:'38 Rue de Vaugirard, Paris 6e', lat:48.849320, lng:2.335223, description:'Cuisine multiculturelle Espagne-Thaïlande-Bretagne.', website_url:null, status:'validated', confidence_score:.88, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Pierre Chomet',role:'candidate'} },
-    { id:'p5', name:'Le Pincemin', place_type:'restaurant', is_permanent:true, city:'Versailles', address:'10 Bd du Roi, Versailles', lat:48.810498, lng:2.126419, description:'Restaurant gastronomique du gagnant de la saison 10.', website_url:'https://www.lepincemin.fr', status:'validated', confidence_score:.92, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Xavier Pincemin',role:'winner'} },
-    { id:'p6', name:'La Mutinerie', place_type:'restaurant', is_permanent:true, city:'Lyon', address:'123 Rue Bugeaud, Lyon 6e', lat:45.767073, lng:4.854430, description:'1 étoile Michelin 2023. Cuisine franco-japonaise.', website_url:'https://www.lamutinerie-restaurant.fr', status:'validated', confidence_score:.94, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Nicolas Seibold',role:'candidate'} },
-    { id:'p7', name:"L'Arrivage", place_type:'restaurant', is_permanent:true, city:'Sète', address:"13-15 Rue André Portes, Sète", lat:43.401962, lng:3.695930, description:'1 étoile Michelin. Cuisine méditerranéenne à Sète.', website_url:null, status:'validated', confidence_score:.93, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Jordan Yuste',role:'candidate'} },
-    { id:'p8', name:'La Mirande', place_type:'restaurant', is_permanent:true, city:'Avignon', address:"4 Pl. de l'Amirande, Avignon", lat:43.950097, lng:4.807731, description:'1 étoile Michelin. Au pied du Palais des Papes.', website_url:'https://www.la-mirande.fr', status:'pending', confidence_score:.72, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Florent Pietravalle',role:'candidate'} },
-    { id:'p9', name:'La Bâcove', place_type:'restaurant', is_permanent:true, city:'Saint-Omer', address:'8 Rue Caventou, Saint-Omer', lat:50.748260, lng:2.255360, description:'Note 4.9/5. Restaurant gastronomique dans le Pas-de-Calais.', website_url:null, status:'validated', confidence_score:.96, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:null },
-    { id:'p10', name:'Péninsule de Caramoan', place_type:'filming_location', is_permanent:true, city:'Caramoan', country:'Philippines', address:'Camarines Sur, Philippines', lat:13.779700, lng:123.878300, description:'Lieu de tournage emblématique de Koh-Lanta, saisons récentes.', website_url:null, status:'validated', confidence_score:.99, shows:{name:'Koh-Lanta',color_hex:'#00B890',emoji:'🌴'}, people:null },
-    { id:'p11', name:'Zénith de Paris', place_type:'venue', is_permanent:true, city:'Paris', address:'211 Av. Jean Jaurès, Paris 19e', lat:48.893400, lng:2.389500, description:'Salle de concerts pour les lives de The Voice.', website_url:'https://www.zenith-paris.com', status:'validated', confidence_score:.91, shows:{name:'The Voice',color_hex:'#6C47FF',emoji:'🎤'}, people:null },
-    { id:'p12', name:'Concert Vianney — Bordeaux', place_type:'concert', is_permanent:false, city:'Bordeaux', address:'Arkéa Arena, Bordeaux', lat:44.864590, lng:-0.575780, description:'Concert de Vianney, coach de The Voice, dans le cadre de sa tournée 2025.', website_url:'https://www.vianney-officiel.com/tournee', status:'uncertain', confidence_score:.38, event_date:'2025-09-15', shows:{name:'The Voice',color_hex:'#6C47FF',emoji:'🎤'}, people:{full_name:'Vianney',role:'coach'} },
-  ];
-  renderAll();
-}
 
 // ===================== HELPERS =====================
 function placeTypeLabel(t) {
