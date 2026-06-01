@@ -32,21 +32,11 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini' });
     }
 
-    const candidate = data.candidates?.[0];
-    const parts = candidate?.content?.parts || [];
-
-    console.log('Finish reason:', candidate?.finishReason);
-    console.log('Parts count:', parts.length);
-    if (parts[0]?.text) console.log('First part (200):', parts[0].text.slice(0, 200));
-
-    const allText = parts.filter(p => p.text).map(p => p.text).join('\n');
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const allText = parts.filter(p => p.text).map(p => p.text).join('');
 
     if (!allText) {
-      return res.status(500).json({
-        error: 'Aucun texte',
-        finish_reason: candidate?.finishReason,
-        safety: candidate?.safetyRatings
-      });
+      return res.status(500).json({ error: 'Réponse vide' });
     }
 
     const match = allText.match(/\{[\s\S]*?"found"[\s\S]*\}/);
