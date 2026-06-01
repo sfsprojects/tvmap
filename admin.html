@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVMAP — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #080810;
+  --bg2:     #0f0f1e;
+  --bg3:     #141428;
+  --bg4:     #1a1a32;
+  --border:  #ffffff12;
+  --border2: #ffffff22;
+  --text:    #f0f0f5;
+  --muted:   #888898;
+  --muted2:  #555565;
+  --ok:      #00B890;
+  --warn:    #f0a020;
+  --danger:  #e05050;
+  --info:    #6C9FFF;
+  --radius:  8px;
+}
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+input, button, select, textarea { font-family: 'Inter', sans-serif; }
+
+/* ===================== LOGIN ===================== */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 340px;
+  text-align: center;
+}
+.login-logo { font-family: 'Bebas Neue', cursive; font-size: 28px; letter-spacing: 2px; margin-bottom: 6px; }
+.login-logo span { color: #FF4C00; }
+.login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+.login-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+.login-input:focus { border-color: #FF4C00; }
+.login-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #FF4C00, #FF2D78);
+  border: none;
+  border-radius: var(--radius);
+  padding: 11px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .5px;
+  transition: opacity .15s;
+}
+.login-btn:hover { opacity: .88; }
+.login-error { color: var(--danger); font-size: 12px; margin-top: 8px; display: none; }
+
+/* ===================== APP ===================== */
+#app { display: none; }
+
+/* HEADER */
+.admin-header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.admin-logo { font-family: 'Bebas Neue', cursive; font-size: 20px; letter-spacing: 2px; }
+.admin-logo span { color: #FF4C00; }
+.admin-badge { background: #FF4C0033; color: #FF7040; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: .08em; }
+.header-nav { display: flex; gap: 4px; margin-left: 16px; }
+.nav-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .04em;
+  transition: all .15s;
+}
+.nav-btn:hover { color: var(--text); background: var(--bg3); }
+.nav-btn.active { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+.logout-btn { margin-left: auto; padding: 6px 12px; border-radius: var(--radius); background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 12px; cursor: pointer; }
+.logout-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+/* MAIN */
+.admin-main { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+/* STATS BAR */
+.stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.stat-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+.stat-num { font-size: 28px; font-weight: 800; color: var(--text); font-family: 'Bebas Neue', cursive; letter-spacing: 1px; }
+.stat-sub { font-size: 11px; color: var(--muted2); margin-top: 2px; }
+
+/* SECTION */
+.section-title { font-size: 13px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title .badge { background: var(--warn); color: #000; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; }
+
+/* VALIDATION QUEUE */
+.queue-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: border-color .15s;
+}
+.queue-item:hover { border-color: var(--border2); }
+.queue-item.uncertain { border-left: 3px solid var(--danger); }
+.queue-item.pending   { border-left: 3px solid var(--warn); }
+
+.qi-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.qi-show-badge { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 4px; color: #fff; white-space: nowrap; flex-shrink: 0; }
+.qi-name { font-size: 15px; font-weight: 800; flex: 1; }
+.qi-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+.qi-status.pending   { background: #f0a02022; color: var(--warn); }
+.qi-status.uncertain { background: #e0505022; color: var(--danger); }
+
+.qi-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.qi-desc { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+
+/* CONFIDENCE BAR */
+.conf-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.conf-label { font-size: 11px; color: var(--muted2); white-space: nowrap; }
+.conf-track { flex: 1; height: 5px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+.conf-bar { height: 100%; border-radius: 3px; }
+.conf-pct { font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+/* SOURCES */
+.sources-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.source-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.source-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.source-type { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px; border-radius: 3px; }
+.source-type.article  { background: #185FA522; color: #6C9FFF; }
+.source-type.official { background: #00B89022; color: #00B890; }
+.source-type.social   { background: #6C47FF22; color: #a090ff; }
+.source-type.wiki     { background: #888; color: #fff; font-size: 9px; }
+.source-type.other    { background: var(--bg4); color: var(--muted2); }
+.source-title { font-size: 12px; font-weight: 700; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-url { font-size: 11px; color: var(--info); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.source-url:hover { color: #90BFFF; }
+.source-excerpt { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+
+/* ACTION BUTTONS */
+.qi-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 8px 16px; border-radius: var(--radius); font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: all .15s; letter-spacing: .04em; }
+.btn-validate { background: var(--ok); color: #fff; }
+.btn-validate:hover { background: #00d4a0; }
+.btn-uncertain { background: #f0a02033; color: var(--warn); border: 1px solid #f0a02055; }
+.btn-uncertain:hover { background: #f0a02055; }
+.btn-reject { background: #e0505033; color: var(--danger); border: 1px solid #e0505055; }
+.btn-reject:hover { background: #e0505055; }
+.btn-edit { background: var(--bg3); color: var(--muted); border: 1px solid var(--border2); }
+.btn-edit:hover { color: var(--text); background: var(--bg4); }
+.interval-select { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; color: var(--text); font-size: 12px; cursor: pointer; margin-left: auto; }
+.admin-note { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; color: var(--text); font-size: 12px; width: 100%; resize: none; outline: none; margin-top: 8px; }
+
+/* TABS */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* TABLE */
+.admin-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.admin-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted2); border-bottom: 1px solid var(--border); }
+.admin-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: middle; }
+.admin-table tr:hover td { background: #ffffff05; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 18px;
+  font-size: 13px; font-weight: 700;
+  z-index: 9999; opacity: 0; transform: translateY(8px);
+  transition: all .25s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.ok   { border-left: 3px solid var(--ok); }
+.toast.warn { border-left: 3px solid var(--warn); }
+.toast.err  { border-left: 3px solid var(--danger); }
+
+/* SETTINGS */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.settings-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.settings-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 8px; display: block; }
+.settings-input { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); padding: 9px 12px; color: var(--text); font-size: 13px; width: 100%; outline: none; }
+.settings-input:focus { border-color: #FF4C0077; }
+.btn-save { background: linear-gradient(135deg, #FF4C00, #FF2D78); border: none; border-radius: var(--radius); padding: 10px 20px; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">TV<span>MAP</span></div>
+    <div class="login-sub">Panneau d'administration</div>
+    <input class="login-input" type="text" id="login-user" placeholder="Identifiant" autocomplete="username">
+    <input class="login-input" type="password" id="login-pass" placeholder="Mot de passe" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Connexion</button>
+    <div class="login-error" id="login-error">Identifiants incorrects</div>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <header class="admin-header">
+    <div class="admin-logo">TV<span>MAP</span></div>
+    <span class="admin-badge">ADMIN</span>
+    <nav class="header-nav">
+      <button class="nav-btn active" onclick="showTab('queue', this)">⏳ File d'attente <span id="queue-count-badge" style="background:#f0a020;color:#000;padding:1px 6px;border-radius:99px;font-size:10px;margin-left:4px;">0</span></button>
+      <button class="nav-btn" onclick="showTab('checks', this)">🔄 Re-vérifications</button>
+      <button class="nav-btn" onclick="showTab('all', this)">📋 Tous les lieux</button>
+      <button class="nav-btn" onclick="showTab('archive', this)">🕐 Archive</button>
+      <button class="nav-btn" onclick="showTab('settings', this)">⚙️ Paramètres</button>
+    </nav>
+    <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+  </header>
+
+  <div class="admin-main">
+    <!-- STATS -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">En attente</div>
+        <div class="stat-num" id="stat-pending">—</div>
+        <div class="stat-sub">À valider</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Incertains</div>
+        <div class="stat-num" id="stat-uncertain">—</div>
+        <div class="stat-sub">Vérification requise</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Validés</div>
+        <div class="stat-num" id="stat-validated">—</div>
+        <div class="stat-sub">Lieux actifs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">À re-vérifier</div>
+        <div class="stat-num" id="stat-due">—</div>
+        <div class="stat-sub">Prochains 7 jours</div>
+      </div>
+    </div>
+
+    <!-- TAB : QUEUE -->
+    <div class="tab-content active" id="tab-queue">
+      <div class="section-title">
+        File d'attente de validation
+        <span class="badge" id="queue-badge">0</span>
+      </div>
+      <div id="queue-list">
+        <div style="color:var(--muted);font-size:13px;padding:20px 0;">Chargement…</div>
+      </div>
+    </div>
+
+    <!-- TAB : RE-VERIFS -->
+    <div class="tab-content" id="tab-checks">
+      <div class="section-title">Re-vérifications planifiées</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Lieux validés dont la prochaine vérification est due dans les 7 prochains jours.</div>
+      <div id="checks-list">
+        <div style="color:var(--muted);font-size:13px;padding:20px 0;">Chargement…</div>
+      </div>
+    </div>
+
+    <!-- TAB : ALL PLACES -->
+    <div class="tab-content" id="tab-all">
+      <div class="section-title">Tous les lieux</div>
+      <div style="overflow-x:auto;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Lieu</th><th>Émission</th><th>Personnalité</th><th>Ville</th><th>Type</th><th>Statut</th><th>Confiance</th><th>Proch. vérif.</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="all-places-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB : ARCHIVE -->
+    <div class="tab-content" id="tab-archive">
+      <div class="section-title">Archive — lieux passés ou supprimés</div>
+      <div style="overflow-x:auto;">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Lieu</th><th>Raison</th><th>Archivé le</th><th>Par</th><th></th></tr>
+          </thead>
+          <tbody id="archive-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB : SETTINGS -->
+    <div class="tab-content" id="tab-settings">
+      <div class="section-title">Paramètres</div>
+      <div class="settings-grid">
+        <div class="settings-card">
+          <label class="settings-label">Intervalle de re-vérification par défaut (jours)</label>
+          <input class="settings-input" type="number" id="setting-interval" value="90" min="7" max="365">
+          <div style="font-size:11px;color:var(--muted2);margin-top:6px;">Appliqué à toutes les nouvelles entrées validées.</div>
+        </div>
+        <div class="settings-card">
+          <label class="settings-label">Mot de passe admin</label>
+          <input class="settings-input" type="password" id="setting-pass" placeholder="Nouveau mot de passe">
+          <div style="font-size:11px;color:var(--muted2);margin-top:6px;">Stocké localement — changez-le dans Supabase Auth pour la production.</div>
+        </div>
+        <div class="settings-card">
+          <label class="settings-label">Supabase URL</label>
+          <input class="settings-input" type="text" id="setting-sb-url" placeholder="https://xxx.supabase.co">
+        </div>
+        <div class="settings-card">
+          <label class="settings-label">Supabase Anon Key</label>
+          <input class="settings-input" type="password" id="setting-sb-key" placeholder="eyJ…">
+        </div>
+      </div>
+      <button class="btn-save" onclick="saveSettings()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ADMIN_PASS = localStorage.getItem('tvmap_admin_pass') || 'tvmap2024';
+let SUPABASE_URL = localStorage.getItem('tvmap_sb_url') || '';
+let SUPABASE_KEY = localStorage.getItem('tvmap_sb_key') || '';
+
+// ===================== AUTH =====================
+function doLogin() {
+  const u = document.getElementById('login-user').value;
+  const p = document.getElementById('login-pass').value;
+  if (u === 'admin' && p === ADMIN_PASS) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  } else {
+    const err = document.getElementById('login-error');
+    err.style.display = 'block';
+    setTimeout(() => err.style.display = 'none', 3000);
+  }
+}
+function doLogout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pass').value = '';
+}
+
+// ===================== TABS =====================
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'queue')    loadQueue();
+  if (name === 'checks')   loadChecks();
+  if (name === 'all')      loadAllPlaces();
+  if (name === 'archive')  loadArchive();
+  if (name === 'settings') loadSettings();
+}
+
+// ===================== API =====================
+async function api(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, opts);
+  if (!r.ok) {
+    const t = await r.text(); throw new Error(t);
+  }
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ===================== INIT =====================
+async function initApp() {
+  await loadStats();
+  await loadQueue();
+}
+
+// ===================== STATS =====================
+async function loadStats() {
+  try {
+    const [pending, uncertain, validated] = await Promise.all([
+      api('places?status=eq.pending&select=id'),
+      api('places?status=eq.uncertain&select=id'),
+      api('places?status=eq.validated&select=id'),
+    ]);
+    document.getElementById('stat-pending').textContent    = pending?.length ?? '—';
+    document.getElementById('stat-uncertain').textContent  = uncertain?.length ?? '—';
+    document.getElementById('stat-validated').textContent  = validated?.length ?? '—';
+    const total = (pending?.length || 0) + (uncertain?.length || 0);
+    document.getElementById('stat-due').textContent = '—';
+    document.getElementById('queue-count-badge').textContent = total;
+    document.getElementById('queue-badge').textContent = total;
+  } catch(e) { console.error('Stats:', e); }
+}
+
+// ===================== QUEUE =====================
+async function loadQueue() {
+  const el = document.getElementById('queue-list');
+  el.innerHTML = `<div style="color:var(--muted);font-size:13px;">Chargement…</div>`;
+  try {
+    const items = await api(
+      `places?status=in.(pending,uncertain)&select=id,name,place_type,city,country,description,status,confidence_score,season,event_date,is_permanent,website_url,show_id,person_id,shows(name,color_hex,emoji),people(full_name,role)&order=created_at.asc`
+    );
+    if (!items?.length) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:20px 0;">✅ Aucun élément en attente.</div>`;
+      return;
+    }
+    el.innerHTML = items.map(p => renderQueueItem(p)).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--danger);font-size:13px;">Erreur : ${e.message}<br><small>Vérifiez l'URL et la clé Supabase dans les paramètres.</small></div>`;
+    // Demo mode
+    renderQueueDemo();
+  }
+}
+
+function renderQueueItem(p, demo = false) {
+  const show = p.shows || {};
+  const color = show.color_hex || '#888';
+  const conf = Math.round((p.confidence_score || 0) * 100);
+  const confColor = conf >= 75 ? '#00B890' : conf >= 40 ? '#f0a020' : '#e05050';
+
+  // Sources (à charger séparément si besoin — ici simplifié)
+  const sourcesHtml = p._sources?.length
+    ? `<div class="sources-list">${p._sources.map(s => `
+        <div class="source-item">
+          <div class="source-header">
+            <span class="source-type ${s.source_type}">${s.source_type}</span>
+            <span class="source-title">${s.title || 'Source sans titre'}</span>
+          </div>
+          <a class="source-url" href="${s.url}" target="_blank">${s.url}</a>
+          ${s.excerpt ? `<div class="source-excerpt">${s.excerpt}</div>` : ''}
+        </div>`).join('')}
+      </div>`
+    : `<div style="font-size:11px;color:var(--muted2);margin-bottom:12px;">Pas de sources enregistrées — ajoutées par l'IA lors de la soumission.</div>`;
+
+  return `
+    <div class="queue-item ${p.status}" id="qi-${p.id}">
+      <div class="qi-top">
+        <span class="qi-show-badge" style="background:${color}">${show.emoji || ''} ${show.name || '?'}</span>
+        <span class="qi-name">${p.name}</span>
+        <span class="qi-status ${p.status}">${p.status === 'uncertain' ? '⚠️ Incertain' : '⏳ En attente'}</span>
+      </div>
+      <div class="qi-meta">
+        ${p.people ? `<span>👤 ${p.people.full_name} · ${p.people.role}</span>` : ''}
+        ${p.city ? `<span>📍 ${p.city}${p.country !== 'France' ? ', '+p.country : ''}</span>` : ''}
+        ${p.place_type ? `<span>🏷️ ${p.place_type}</span>` : ''}
+        ${p.event_date ? `<span>📅 ${p.event_date}</span>` : ''}
+      </div>
+      ${p.description ? `<div class="qi-desc">${p.description}</div>` : ''}
+
+      <div style="margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Site officiel</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="url"
+            id="website-${p.id}"
+            value="${p.website_url || ''}"
+            placeholder="https://…"
+            style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;"
+            onfocus="this.style.borderColor='#FF4C0077'" onblur="this.style.borderColor=''"
+          >
+          ${p.website_url ? `<a href="${p.website_url}" target="_blank" style="color:#6C9FFF;font-size:12px;white-space:nowrap;text-decoration:none;">↗ Ouvrir</a>` : ''}
+        </div>
+      </div>
+
+      <div class="conf-row">
+        <span class="conf-label">Confiance IA</span>
+        <div class="conf-track"><div class="conf-bar" style="width:${conf}%;background:${confColor}"></div></div>
+        <span class="conf-pct" style="color:${confColor}">${conf}%</span>
+      </div>
+
+      ${sourcesHtml}
+
+      <div class="qi-actions">
+        <button class="btn btn-validate" onclick="validatePlace('${p.id}')">✓ Valider</button>
+        <button class="btn btn-uncertain" onclick="markUncertain('${p.id}')">⚠️ Marquer incertain</button>
+        <button class="btn btn-reject" onclick="rejectPlace('${p.id}')">✕ Rejeter</button>
+        <button class="btn btn-edit" onclick="editPlace('${p.id}')">✎ Éditer</button>
+        <select class="interval-select" id="interval-${p.id}" title="Intervalle de re-vérification">
+          <option value="30">Revérifier dans 30j</option>
+          <option value="60">Revérifier dans 60j</option>
+          <option value="90" selected>Revérifier dans 90j</option>
+          <option value="180">Revérifier dans 6 mois</option>
+          <option value="365">Revérifier dans 1 an</option>
+        </select>
+      </div>
+      <textarea class="admin-note" id="note-${p.id}" rows="2" placeholder="Note optionnelle (interne)…"></textarea>
+    </div>`;
+}
+
+function renderQueueDemo() {
+  const demoItems = [
+    { id:'demo1', status:'pending', confidence_score:.78, name:'Le Pincemin', place_type:'restaurant', city:'Versailles', country:'France', description:'Restaurant gastronomique du gagnant de Top Chef saison 10, Xavier Pincemin.', event_date:null, season:10, is_permanent:true, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Xavier Pincemin',role:'winner'}, _sources:[{url:'https://example.com/pincemin',title:'Le Pincemin — TripAdvisor',excerpt:'Restaurant gastronomique à Versailles…',source_type:'article'}] },
+    { id:'demo2', status:'uncertain', confidence_score:.32, name:'Concert Vianney — Bordeaux', place_type:'concert', city:'Bordeaux', country:'France', description:'Concert de Vianney, coach The Voice, en tournée 2025.', event_date:'2025-09-15', season:null, is_permanent:false, shows:{name:'The Voice',color_hex:'#6C47FF',emoji:'🎤'}, people:{full_name:'Vianney',role:'coach'}, _sources:[] },
+  ];
+  document.getElementById('queue-list').innerHTML = demoItems.map(p => renderQueueItem(p, true)).join('');
+}
+
+// ===================== ACTIONS =====================
+async function validatePlace(id) {
+  const interval = parseInt(document.getElementById(`interval-${id}`)?.value || '90');
+  const note = document.getElementById(`note-${id}`)?.value || '';
+  const website = document.getElementById(`website-${id}`)?.value.trim() || null;
+  try {
+    await api(`places?id=eq.${id}`, 'PATCH', {
+      status: 'validated',
+      check_interval_days: interval,
+      next_check_at: new Date(Date.now() + interval * 864e5).toISOString(),
+      verified_at: new Date().toISOString(),
+      ...(website !== null && { website_url: website })
+    });
+    await logAction('validate', 'places', id, { note });
+    document.getElementById(`qi-${id}`)?.remove();
+    toast('✅ Lieu validé et publié', 'ok');
+    loadStats();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'err');
+    // Demo
+    document.getElementById(`qi-${id}`)?.remove();
+    toast('✅ (démo) Lieu validé', 'ok');
+  }
+}
+
+async function markUncertain(id) {
+  try {
+    await api(`places?id=eq.${id}`, 'PATCH', { status: 'uncertain' });
+    document.getElementById(`qi-${id}`)?.classList.replace('pending', 'uncertain');
+    toast('⚠️ Marqué comme incertain', 'warn');
+  } catch(e) {
+    toast('⚠️ (démo) Marqué incertain', 'warn');
+  }
+}
+
+async function rejectPlace(id) {
+  if (!confirm('Rejeter cette entrée ? Elle sera archivée.')) return;
+  try {
+    const [place] = await api(`places?id=eq.${id}&select=*`);
+    if (place) {
+      await api('archive', 'POST', {
+        original_id: id, table_name: 'places',
+        data: place, archive_reason: 'admin_deleted', archived_by: 'admin'
+      });
+    }
+    await api(`places?id=eq.${id}`, 'PATCH', { status: 'rejected' });
+    document.getElementById(`qi-${id}`)?.remove();
+    toast('✕ Entrée rejetée et archivée', 'warn');
+    loadStats();
+  } catch(e) {
+    document.getElementById(`qi-${id}`)?.remove();
+    toast('✕ (démo) Rejeté', 'warn');
+  }
+}
+
+function editPlace(id) {
+  toast('✎ Édition — connectez Supabase pour activer', 'warn');
+}
+
+async function logAction(action, table, recordId, extra = {}) {
+  try {
+    await api('admin_log', 'POST', {
+      action, table_name: table, record_id: recordId, new_data: extra
+    });
+  } catch(e) {}
+}
+
+// ===================== RE-VERIFS =====================
+async function loadChecks() {
+  const el = document.getElementById('checks-list');
+  try {
+    const soon = new Date(Date.now() + 7 * 864e5).toISOString();
+    const items = await api(
+      `places?status=eq.validated&next_check_at=lte.${soon}&select=id,name,city,next_check_at,last_checked_at,check_interval_days,shows(name,color_hex,emoji)&order=next_check_at.asc&limit=30`
+    );
+    if (!items?.length) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:13px;">Aucune re-vérification prévue dans les 7 prochains jours.</div>`;
+      return;
+    }
+    el.innerHTML = `<table class="admin-table" style="background:var(--bg2);border-radius:12px;overflow:hidden;">
+      <thead><tr><th>Lieu</th><th>Émission</th><th>Ville</th><th>Prochaine vérif.</th><th>Intervalle</th><th></th></tr></thead>
+      <tbody>${items.map(p => `
+        <tr>
+          <td style="color:var(--text);font-weight:700;">${p.name}</td>
+          <td><span style="background:${p.shows?.color_hex||'#888'};color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:3px;">${p.shows?.emoji||''} ${p.shows?.name||'?'}</span></td>
+          <td>${p.city||'—'}</td>
+          <td style="color:var(--warn);">${new Date(p.next_check_at).toLocaleDateString('fr-FR')}</td>
+          <td>${p.check_interval_days}j</td>
+          <td><button class="btn btn-edit" onclick="triggerReverify('${p.id}')">🔄 Lancer</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;">Connectez Supabase pour voir les re-vérifications.</div>`;
+  }
+}
+
+async function triggerReverify(id) {
+  try {
+    await api('ai_tasks', 'POST', {
+      task_type: 'reverify',
+      input: { place_id: id },
+      requested_by: 'admin',
+      scheduled_for: new Date().toISOString()
+    });
+    toast('🔄 Re-vérification planifiée', 'ok');
+  } catch(e) { toast('🔄 (démo) Re-vérification planifiée', 'ok'); }
+}
+
+// ===================== ALL PLACES =====================
+async function loadAllPlaces() {
+  try {
+    const items = await api(
+      'places?select=id,name,city,place_type,status,confidence_score,next_check_at,shows(name,color_hex,emoji),people(full_name)&order=created_at.desc&limit=100'
+    );
+    const tbody = document.getElementById('all-places-tbody');
+    if (!items?.length) { tbody.innerHTML = `<tr><td colspan="9" style="color:var(--muted);">Aucun lieu</td></tr>`; return; }
+    tbody.innerHTML = items.map(p => {
+      const conf = Math.round((p.confidence_score||0)*100);
+      const confColor = conf>=75?'#00B890':conf>=40?'#f0a020':'#e05050';
+      const statusColor = {validated:'#00B890',pending:'#f0a020',uncertain:'#e05050',rejected:'#555'}[p.status]||'#888';
+      return `<tr>
+        <td style="color:var(--text);font-weight:600;">${p.name}</td>
+        <td><span style="background:${p.shows?.color_hex||'#888'};color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:3px;">${p.shows?.emoji||''} ${p.shows?.name||'?'}</span></td>
+        <td>${p.people?.full_name||'—'}</td>
+        <td>${p.city||'—'}</td>
+        <td>${p.place_type||'—'}</td>
+        <td><span style="color:${statusColor};font-weight:700;font-size:11px;">${p.status}</span></td>
+        <td><span style="color:${confColor};font-weight:700;">${conf}%</span></td>
+        <td>${p.next_check_at ? new Date(p.next_check_at).toLocaleDateString('fr-FR') : '—'}</td>
+        <td><button class="btn btn-edit" style="padding:5px 10px;" onclick="editPlace('${p.id}')">✎</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('all-places-tbody').innerHTML = `<tr><td colspan="9" style="color:var(--muted);">Connectez Supabase pour voir tous les lieux.</td></tr>`;
+  }
+}
+
+// ===================== ARCHIVE =====================
+async function loadArchive() {
+  try {
+    const items = await api('archive?order=archived_at.desc&limit=50');
+    const tbody = document.getElementById('archive-tbody');
+    if (!items?.length) { tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);">Archive vide.</td></tr>`; return; }
+    tbody.innerHTML = items.map(a => `<tr>
+      <td style="color:var(--text);font-weight:600;">${a.data?.name||a.original_id}</td>
+      <td><span style="background:var(--bg4);color:var(--muted);font-size:10px;padding:2px 6px;border-radius:3px;">${a.archive_reason}</span></td>
+      <td>${new Date(a.archived_at).toLocaleDateString('fr-FR')}</td>
+      <td>${a.archived_by}</td>
+      <td><button class="btn btn-edit" style="padding:5px 10px;" onclick="restoreArchive('${a.id}')">↩ Restaurer</button></td>
+    </tr>`).join('');
+  } catch(e) {
+    document.getElementById('archive-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--muted);">Connectez Supabase pour voir l'archive.</td></tr>`;
+  }
+}
+
+async function restoreArchive(archiveId) {
+  toast('↩ Restauration — à implémenter avec Supabase', 'warn');
+}
+
+// ===================== SETTINGS =====================
+function loadSettings() {
+  document.getElementById('setting-sb-url').value = localStorage.getItem('tvmap_sb_url') || '';
+  document.getElementById('setting-sb-key').value = localStorage.getItem('tvmap_sb_key') || '';
+  document.getElementById('setting-interval').value = localStorage.getItem('tvmap_default_interval') || '90';
+}
+function saveSettings() {
+  const url = document.getElementById('setting-sb-url').value.trim();
+  const key = document.getElementById('setting-sb-key').value.trim();
+  const pass = document.getElementById('setting-pass').value.trim();
+  const interval = document.getElementById('setting-interval').value;
+  if (url) { localStorage.setItem('tvmap_sb_url', url); SUPABASE_URL = url; }
+  if (key) { localStorage.setItem('tvmap_sb_key', key); SUPABASE_KEY = key; }
+  if (pass) localStorage.setItem('tvmap_admin_pass', pass);
+  if (interval) localStorage.setItem('tvmap_default_interval', interval);
+  toast('✅ Paramètres enregistrés', 'ok');
+}
+
+// ===================== TOAST =====================
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

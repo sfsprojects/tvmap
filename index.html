@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVMAP — L'actualité des personnalités TV</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ===================== RESET & BASE ===================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #080810;
+  --bg2:      #0f0f1e;
+  --bg3:      #141428;
+  --bg4:      #1a1a32;
+  --border:   #ffffff12;
+  --border2:  #ffffff22;
+  --text:     #f0f0f5;
+  --muted:    #888898;
+  --muted2:   #555565;
+  --pending:  #f0a020;
+  --uncertain:#e05050;
+  --radius:   10px;
+  --sidebar:  300px;
+}
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ===================== HEADER ===================== */
+header {
+  flex-shrink: 0;
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  z-index: 1000;
+  padding: 0;
+}
+.logo {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 24px;
+  letter-spacing: 2px;
+  padding: 0 20px;
+  color: #fff;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.logo span { color: #FF4C00; }
+
+.filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  height: 100%;
+  border-right: 1px solid var(--border);
+}
+.filters-bar::-webkit-scrollbar { display: none; }
+
+.filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+  letter-spacing: .3px;
+}
+.filter-pill:hover { border-color: #ffffff44; color: #fff; }
+.filter-pill.active { border-color: transparent; color: #fff; }
+.filter-pill .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.search-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+.search-input {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  width: 220px;
+  outline: none;
+  transition: border-color .15s;
+}
+.search-input::placeholder { color: var(--muted2); }
+.search-input:focus { border-color: #ffffff40; }
+
+.ai-btn {
+  background: linear-gradient(135deg, #FF4C00, #FF2D78);
+  border: none;
+  border-radius: var(--radius);
+  padding: 7px 14px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: .5px;
+  transition: opacity .15s;
+}
+.ai-btn:hover { opacity: .85; }
+.ai-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ===================== LAYOUT ===================== */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+#map { flex: 1; z-index: 1; }
+
+/* ===================== SIDEBAR ===================== */
+.sidebar {
+  width: var(--sidebar);
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.count-pill {
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+/* ===================== PLACE CARDS ===================== */
+.place-card {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+  position: relative;
+}
+.place-card:hover { background: #ffffff06; }
+.place-card.active { background: #ffffff0a; }
+.place-card.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+.show-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  color: #fff;
+}
+.type-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--muted2);
+  background: var(--bg4);
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.status-badge {
+  margin-left: auto;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-badge.pending  { color: var(--pending); }
+.status-badge.uncertain { color: var(--uncertain); }
+
+.card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-person {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted2);
+}
+.card-event-date {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: #6C47FF22;
+  color: #a090ff;
+  margin-top: 5px;
+  display: inline-block;
+}
+
+/* ===================== DETAIL PANEL ===================== */
+.detail-panel {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 14px;
+  flex-shrink: 0;
+  display: none;
+}
+.detail-panel.visible { display: block; }
+.detail-close {
+  float: right;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.detail-name { font-size: 17px; font-weight: 800; color: #fff; margin: 4px 0 2px; clear: both; }
+.detail-person { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.detail-desc { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 8px; }
+.detail-sources { display: flex; flex-direction: column; gap: 4px; }
+.detail-source-link {
+  font-size: 11px;
+  color: #6C9FFF;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-source-link:hover { color: #90BFFF; }
+.conf-bar-wrap { margin-top: 10px; }
+.conf-label { font-size: 10px; color: var(--muted2); margin-bottom: 4px; }
+.conf-bar { height: 4px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
+.conf-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+
+/* ===================== AI PANEL ===================== */
+.ai-panel {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 14px;
+  flex-shrink: 0;
+  display: none;
+}
+.ai-panel.visible { display: block; }
+.ai-panel-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pending); margin-bottom: 8px; }
+.ai-status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+.ai-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border2);
+  border-top-color: #FF4C00;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ai-result { margin-top: 8px; font-size: 12px; color: var(--text); line-height: 1.5; }
+
+/* ===================== LEAFLET OVERRIDES ===================== */
+.leaflet-popup-content-wrapper {
+  background: #1a1a2e;
+  color: white;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.7);
+}
+.leaflet-popup-tip { background: #1a1a2e; }
+.leaflet-popup-content { margin: 12px 16px; }
+.leaflet-control-zoom a { background: var(--bg3) !important; color: var(--text) !important; border-color: var(--border2) !important; }
+.leaflet-control-zoom a:hover { background: var(--bg4) !important; }
+.popup-show { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; padding: 2px 7px; border-radius: 3px; color: #fff; margin-bottom: 6px; display: inline-block; }
+.popup-name { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 3px; }
+.popup-person { font-size: 11px; color: #aaa; margin-bottom: 5px; }
+.popup-desc { font-size: 11px; color: #ccc; line-height: 1.5; max-width: 200px; }
+.popup-status { font-size: 10px; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+
+/* ===================== HISTORY TOGGLE ===================== */
+.history-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  color: var(--muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all .15s;
+}
+.history-btn:hover { color: var(--text); border-color: var(--border2); background: var(--bg3); }
+.history-btn.active { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .search-input { width: 130px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TV<span>MAP</span></div>
+
+  <div class="filters-bar" id="filters-bar">
+    <button class="filter-pill active" data-show="all" onclick="setFilter('all',this)">
+      <span class="dot" style="background:#fff"></span> Tout
+    </button>
+    <!-- Les filtres des émissions sont générés dynamiquement -->
+  </div>
+
+  <div class="search-area">
+    <input class="search-input" id="search-input" type="text" placeholder="Chercher un lieu, une célébrité…" oninput="onSearchInput(this.value)">
+    <button class="ai-btn" id="ai-search-btn" onclick="triggerAiSearch()">✦ IA</button>
+    <button class="history-btn" id="history-btn" onclick="toggleHistory()" title="Afficher l'historique">
+      🕐 Historique
+    </button>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title" id="sidebar-label">Lieux</span>
+      <span class="count-pill" id="count-pill">0</span>
+    </div>
+    <div class="sidebar-list" id="sidebar-list"></div>
+    <div class="ai-panel" id="ai-panel">
+      <div class="ai-panel-title">✦ Recherche IA</div>
+      <div class="ai-status" id="ai-status">
+        <div class="ai-spinner"></div>
+        <span id="ai-status-text">Recherche en cours…</span>
+      </div>
+      <div class="ai-result" id="ai-result"></div>
+    </div>
+    <div class="detail-panel" id="detail-panel">
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+      <div id="detail-badges"></div>
+      <div class="detail-name" id="detail-name"></div>
+      <div class="detail-person" id="detail-person"></div>
+      <div class="detail-desc" id="detail-desc"></div>
+      <div id="detail-website" style="margin-bottom:10px;"></div>
+      <div class="detail-sources" id="detail-sources"></div>
+      <div class="conf-bar-wrap" id="conf-wrap">
+        <div class="conf-label">Niveau de confiance IA</div>
+        <div class="conf-bar"><div class="conf-fill" id="conf-fill"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIG =====================
+const SUPABASE_URL = 'https://goohiwrllmrsgaezjloz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvb2hpd3JsbG1yc2dhZXpqbG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDIzNDIsImV4cCI6MjA5NTkxODM0Mn0.Wq6olB_3i_w_KQjrD9EyE1pdDe7AMIDwGWXgz4dbG7o';
+
+// ===================== STATE =====================
+let allPlaces = [];
+let allShows = [];
+let markers = {};
+let activeFilter = 'all';
+let activeId = null;
+let showingHistory = false;
+let searchTimeout = null;
+
+// ===================== MAP INIT =====================
+const map = L.map('map', {
+  center: [46.5, 2.5],
+  zoom: 6,
+  zoomControl: true,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+// ===================== SUPABASE FETCH =====================
+async function apiFetch(path) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function loadShows() {
+  try {
+    const shows = await apiFetch('shows?select=id,name,color_hex,emoji,status&order=name');
+    allShows = shows;
+    renderShowFilters(shows);
+  } catch(e) {
+    console.error('Erreur chargement émissions:', e);
+    // Mode démo si pas de Supabase
+    loadDemoData();
+  }
+}
+
+async function loadPlaces(filter = 'all') {
+  let query = 'places?select=id,name,place_type,is_permanent,address,city,country,lat,lng,description,season,still_active,event_date,status,confidence_score,website_url,show_id,person_id,shows(name,color_hex,emoji),people(full_name,role)&lat=not.is.null&lng=not.is.null';
+  if (filter !== 'all') query += `&show_id=eq.${filter}`;
+  if (!showingHistory) {
+    query += '&status=in.(validated,pending,uncertain)';
+    query += '&or=(is_permanent.eq.true,event_date.gte.' + new Date().toISOString().split('T')[0] + ')';
+  }
+  try {
+    const places = await apiFetch(query);
+    allPlaces = places;
+    renderAll();
+  } catch(e) {
+    console.error('Erreur chargement lieux:', e);
+  }
+}
+
+async function loadSources(placeId) {
+  try {
+    return await apiFetch(`place_sources?place_id=eq.${placeId}&is_current=eq.true&order=found_at.desc&limit=3`);
+  } catch(e) { return []; }
+}
+
+// ===================== RENDER FILTERS =====================
+function renderShowFilters(shows) {
+  const bar = document.getElementById('filters-bar');
+  // Keep "Tout" button, add shows
+  const validated = shows.filter(s => s.status !== 'rejected');
+  validated.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-pill';
+    btn.dataset.show = s.id;
+    btn.innerHTML = `<span class="dot" style="background:${s.color_hex}"></span>${s.emoji} ${s.name}`;
+    btn.onclick = () => setFilter(s.id, btn);
+    bar.appendChild(btn);
+  });
+}
+
+// ===================== FILTER =====================
+function setFilter(showId, btn) {
+  document.querySelectorAll('.filter-pill').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = '';
+    b.style.borderColor = '';
+  });
+  btn.classList.add('active');
+  if (showId !== 'all') {
+    const show = allShows.find(s => s.id === showId);
+    if (show) {
+      btn.style.background = show.color_hex + '33';
+      btn.style.borderColor = show.color_hex + '88';
+    }
+  }
+  activeFilter = showId;
+  loadPlaces(showId === 'all' ? 'all' : showId);
+}
+
+// ===================== RENDER ALL =====================
+function renderAll() {
+  clearMarkers();
+  renderMarkers();
+  renderSidebar();
+}
+
+function clearMarkers() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+}
+
+// ===================== MARKERS =====================
+function getMarkerOpacity(place) {
+  if (place.status === 'pending' || place.status === 'uncertain') return 0.65;
+  return 1;
+}
+
+function createMarkerIcon(place) {
+  const show = place.shows;
+  const color = show?.color_hex || '#888';
+  const emoji = show?.emoji || '📍';
+  const opacity = getMarkerOpacity(place);
+  const isPending = place.status === 'pending';
+  const isUncertain = place.status === 'uncertain';
+  const statusIcon = isUncertain ? '⚠️' : (isPending ? '⏳' : '');
+  const isEvent = !place.is_permanent;
+
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      position:relative;
+      width:${isEvent ? 32 : 36}px;
+      height:${isEvent ? 32 : 36}px;
+      border-radius:${isEvent ? '6px' : '50%'};
+      background:${color};
+      display:flex;align-items:center;justify-content:center;
+      font-size:17px;
+      border:2px solid ${color === '#888' ? '#555' : color + 'aa'};
+      outline:3px solid ${color}22;
+      opacity:${opacity};
+      filter:${isPending || isUncertain ? 'grayscale(30%)' : 'none'};
+      transition:.2s;
+    ">
+      ${emoji}
+      ${statusIcon ? `<span style="
+        position:absolute;top:-6px;right:-6px;
+        font-size:11px;line-height:1;
+      ">${statusIcon}</span>` : ''}
+    </div>`,
+    iconSize: [isEvent ? 32 : 36, isEvent ? 32 : 36],
+    iconAnchor: [isEvent ? 16 : 18, isEvent ? 16 : 18],
+    popupAnchor: [0, -22]
+  });
+}
+
+function buildPopup(p) {
+  const show = p.shows;
+  const color = show?.color_hex || '#888';
+  const statusHtml = p.status !== 'validated'
+    ? `<div class="popup-status" style="color:${p.status === 'uncertain' ? '#e05050' : '#f0a020'}">
+        ${p.status === 'uncertain' ? '⚠️ Données incertaines' : '⏳ En attente de vérification'}
+       </div>` : '';
+  const eventHtml = p.event_date
+    ? `<div style="margin-top:6px;font-size:10px;color:#a090ff;font-weight:700;">📅 ${formatDate(p.event_date)}</div>` : '';
+  return `
+    <div>
+      <span class="popup-show" style="background:${color}">${show?.name || '—'}</span>
+      <div class="popup-name" style="${p.status !== 'validated' ? 'opacity:.75' : ''}">${p.name}</div>
+      ${p.people ? `<div class="popup-person">👤 ${p.people.full_name} · ${roleLabel(p.people.role)}</div>` : ''}
+      ${p.city ? `<div class="popup-person">📍 ${p.city}${p.country !== 'France' ? ', '+p.country : ''}</div>` : ''}
+      ${p.description ? `<div class="popup-desc">${p.description.slice(0,120)}${p.description.length > 120 ? '…' : ''}</div>` : ''}
+      ${eventHtml}${statusHtml}
+      ${p.website_url ? `<div style="margin-top:8px;"><a href="${p.website_url}" target="_blank" style="font-size:11px;color:#6C9FFF;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">🌐 Site officiel</a></div>` : ''}
+    </div>`;
+}
+
+function renderMarkers() {
+  const visible = filteredPlaces();
+  document.getElementById('count-pill').textContent = visible.length;
+  visible.forEach(p => {
+    if (!p.lat || !p.lng) return;
+    const m = L.marker([p.lat, p.lng], { icon: createMarkerIcon(p) })
+      .addTo(map)
+      .bindPopup(buildPopup(p), { maxWidth: 260 });
+    m.on('click', () => { activeId = p.id; renderSidebar(); showDetail(p); });
+    markers[p.id] = m;
+  });
+}
+
+// ===================== SIDEBAR =====================
+function renderSidebar() {
+  const list = document.getElementById('sidebar-list');
+  const visible = filteredPlaces();
+  document.getElementById('count-pill').textContent = visible.length;
+  document.getElementById('sidebar-label').textContent = showingHistory ? 'Historique' : 'Lieux';
+
+  if (visible.length === 0) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted2);font-size:13px;">Aucun lieu trouvé</div>`;
+    return;
+  }
+
+  list.innerHTML = visible.map(p => {
+    const show = p.shows;
+    const color = show?.color_hex || '#888';
+    const isPending = p.status === 'pending';
+    const isUncertain = p.status === 'uncertain';
+    const opacity = (isPending || isUncertain) ? 'opacity:.7' : '';
+    return `<div class="place-card ${activeId === p.id ? 'active' : ''} ${isPending || isUncertain ? 'dimmed' : ''}"
+      style="${opacity}${activeId === p.id ? `;border-left:3px solid ${color};padding-left:11px` : ''}"
+      onclick="focusPlace('${p.id}')">
+      <div class="card-top">
+        <span class="show-badge" style="background:${color}">${show?.emoji || ''} ${show?.name || '?'}</span>
+        <span class="type-badge">${placeTypeLabel(p.place_type)}</span>
+        ${isPending ? `<span class="status-badge pending">⏳</span>` : ''}
+        ${isUncertain ? `<span class="status-badge uncertain">⚠️</span>` : ''}
+      </div>
+      <div class="card-name">${p.name}</div>
+      ${p.people ? `<div class="card-person">👤 ${p.people.full_name}</div>` : ''}
+      <div class="card-meta">
+        ${p.city ? `<span>📍 ${p.city}</span>` : ''}
+        ${p.season ? `<span>S${p.season}</span>` : ''}
+      </div>
+      ${p.event_date ? `<span class="card-event-date">📅 ${formatDate(p.event_date)}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ===================== FOCUS / DETAIL =====================
+async function focusPlace(id) {
+  const p = allPlaces.find(x => x.id === id);
+  if (!p) return;
+  activeId = id;
+  if (p.lat && p.lng) {
+    map.flyTo([p.lat, p.lng], 13, { duration: .8 });
+    if (markers[id]) markers[id].openPopup();
+  }
+  renderSidebar();
+  showDetail(p);
+}
+
+async function showDetail(p) {
+  const panel = document.getElementById('detail-panel');
+  const show = p.shows;
+  const color = show?.color_hex || '#888';
+  const isPending = p.status === 'pending';
+  const isUncertain = p.status === 'uncertain';
+
+  // Badges
+  let badgesHtml = `<span class="show-badge" style="background:${color};margin-right:5px;">${show?.emoji || ''} ${show?.name || ''}</span>`;
+  if (isUncertain) badgesHtml += `<span style="background:#e0505022;color:#e05050;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;border:1px solid #e0505044;">⚠️ Données incertaines</span>`;
+  else if (isPending) badgesHtml += `<span style="background:#f0a02022;color:#f0a020;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;border:1px solid #f0a02044;">⏳ En attente de vérification</span>`;
+
+  document.getElementById('detail-badges').innerHTML = badgesHtml;
+  document.getElementById('detail-name').textContent = p.name;
+  document.getElementById('detail-person').textContent = [
+    p.people ? `👤 ${p.people.full_name} · ${roleLabel(p.people.role)}` : null,
+    p.address || p.city ? `📍 ${[p.address, p.city].filter(Boolean).join(', ')}` : null,
+    p.event_date ? `📅 ${formatDate(p.event_date)}` : null
+  ].filter(Boolean).join('  ·  ');
+  document.getElementById('detail-desc').textContent = p.description || '';
+
+  // Lien site officiel
+  const websiteEl = document.getElementById('detail-website');
+  if (p.website_url) {
+    websiteEl.innerHTML = `<a href="${p.website_url}" target="_blank" style="color:#6C9FFF;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;">🌐 Site officiel <span style="font-size:10px;opacity:.6">↗</span></a>`;
+    websiteEl.style.display = 'block';
+  } else {
+    websiteEl.style.display = 'none';
+  }
+
+  // Sources
+  const sources = await loadSources(p.id);
+  document.getElementById('detail-sources').innerHTML = sources.length
+    ? sources.map(s => `<a class="detail-source-link" href="${s.url}" target="_blank">🔗 ${s.title || s.url}</a>`).join('')
+    : `<span style="font-size:11px;color:var(--muted2)">Sources non disponibles</span>`;
+
+  // Confidence bar
+  if (p.confidence_score != null) {
+    const pct = Math.round(p.confidence_score * 100);
+    const barColor = pct >= 75 ? '#00B890' : pct >= 40 ? '#f0a020' : '#e05050';
+    document.getElementById('conf-fill').style.width = pct + '%';
+    document.getElementById('conf-fill').style.background = barColor;
+    document.getElementById('conf-wrap').style.display = 'block';
+  } else {
+    document.getElementById('conf-wrap').style.display = 'none';
+  }
+
+  panel.classList.add('visible');
+  document.getElementById('ai-panel').classList.remove('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('visible');
+  activeId = null;
+  renderSidebar();
+}
+
+// ===================== HISTORY =====================
+function toggleHistory() {
+  showingHistory = !showingHistory;
+  const btn = document.getElementById('history-btn');
+  btn.classList.toggle('active', showingHistory);
+  btn.textContent = showingHistory ? '🕐 Actif' : '🕐 Historique';
+  loadPlaces(activeFilter === 'all' ? 'all' : activeFilter);
+}
+
+// ===================== SEARCH =====================
+function onSearchInput(val) {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    const q = val.toLowerCase().trim();
+    if (!q) { renderAll(); return; }
+    // Filtre local
+    const filtered = allPlaces.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.people?.full_name.toLowerCase().includes(q) ||
+      p.city?.toLowerCase().includes(q) ||
+      p.shows?.name.toLowerCase().includes(q)
+    );
+    clearMarkers();
+    const prev = allPlaces;
+    allPlaces = filtered;
+    renderAll();
+    allPlaces = prev;
+  }, 200);
+}
+
+function filteredPlaces() {
+  return allPlaces.filter(p => p.lat && p.lng);
+}
+
+// ===================== AI SEARCH =====================
+async function triggerAiSearch() {
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+
+  const panel = document.getElementById('ai-panel');
+  const btn = document.getElementById('ai-search-btn');
+  panel.classList.add('visible');
+  document.getElementById('detail-panel').classList.remove('visible');
+  document.getElementById('ai-status').style.display = 'flex';
+  document.getElementById('ai-result').textContent = '';
+  btn.disabled = true;
+  document.getElementById('ai-status-text').textContent = 'Recherche en cours…';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `Tu es l'assistant de TVMAP, un site qui recense les lieux liés aux personnalités des émissions de télévision françaises (restaurants, concerts, tournages, etc.).
+
+Quand un utilisateur cherche des informations, tu dois :
+1. Chercher sur internet les informations les plus récentes
+2. Ne répondre que si tu trouves des sources fiables
+3. Retourner un JSON strict avec ce format :
+{
+  "found": true/false,
+  "confidence": 0.0-1.0,
+  "places": [{
+    "name": "...",
+    "place_type": "restaurant|concert|event|filming_location|studio|popup|venue|other",
+    "is_permanent": true/false,
+    "address": "...",
+    "city": "...",
+    "country": "France",
+    "lat": null,
+    "lng": null,
+    "description": "...",
+    "website_url": "URL du site officiel ou billetterie, null si introuvable",
+    "person_name": "...",
+    "show_name": "...",
+    "season": null,
+    "event_date": "YYYY-MM-DD ou null",
+    "sources": [{"url": "...", "title": "...", "excerpt": "...", "source_type": "article|official|social|wiki|other"}]
+  }],
+  "message": "Message à afficher à l'utilisateur"
+}
+Si tu n'es pas sûr d'une information, mets confidence < 0.5 et indique-le dans message.
+Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`,
+        messages: [{ role: 'user', content: query }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }]
+      })
+    });
+
+    const data = await resp.json();
+    document.getElementById('ai-status').style.display = 'none';
+
+    const textBlock = data.content?.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('Pas de réponse IA');
+
+    let result;
+    try {
+      result = JSON.parse(textBlock.text.replace(/```json|```/g, '').trim());
+    } catch(e) {
+      document.getElementById('ai-result').textContent = textBlock.text;
+      return;
+    }
+
+    if (!result.found || !result.places?.length) {
+      document.getElementById('ai-result').innerHTML = `<span style="color:var(--muted)">Aucune information trouvée pour cette recherche.</span>`;
+      return;
+    }
+
+    const conf = Math.round((result.confidence || 0) * 100);
+    const confColor = conf >= 75 ? '#00B890' : conf >= 40 ? '#f0a020' : '#e05050';
+    const statusLabel = conf >= 75 ? 'En attente de validation' : 'Données incertaines — validation requise';
+    const statusIcon = conf >= 75 ? '⏳' : '⚠️';
+
+    document.getElementById('ai-result').innerHTML = `
+      <div style="margin-bottom:8px;font-size:11px;color:${confColor};font-weight:700;">
+        ${statusIcon} ${statusLabel} — Confiance : ${conf}%
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${result.message || ''}</div>
+      ${result.places.map(p => `
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px;">${p.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
+            ${p.person_name ? `👤 ${p.person_name}` : ''} ${p.city ? `· 📍 ${p.city}` : ''}
+          </div>
+          <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin-bottom:6px;">${p.description || ''}</div>
+          ${p.sources?.slice(0,2).map(s => `<a href="${s.url}" target="_blank" style="font-size:10px;color:#6C9FFF;display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔗 ${s.title || s.url}</a>`).join('') || ''}
+        </div>
+      `).join('')}
+      <div style="font-size:11px;color:var(--muted2);margin-top:4px;">Ces informations ont été soumises et sont en attente de validation par l'administrateur.</div>
+    `;
+
+    // Envoyer à Supabase via ai_tasks
+    await submitAiResults(query, result);
+
+  } catch(e) {
+    document.getElementById('ai-status').style.display = 'none';
+    document.getElementById('ai-result').innerHTML = `<span style="color:#e05050">Erreur : ${e.message}</span>`;
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function submitAiResults(query, result) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/ai_tasks`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        task_type: 'user_request',
+        status: 'done',
+        input: { query },
+        result,
+        requested_by: 'user'
+      })
+    });
+  } catch(e) { console.warn('Impossible de sauvegarder la tâche IA:', e); }
+}
+
+// ===================== DEMO DATA =====================
+function loadDemoData() {
+  allShows = [
+    { id: '1', name: 'Top Chef', color_hex: '#FF4C00', emoji: '👨‍🍳', status: 'validated' },
+    { id: '2', name: 'Koh-Lanta', color_hex: '#00B890', emoji: '🌴', status: 'validated' },
+    { id: '3', name: 'The Voice', color_hex: '#6C47FF', emoji: '🎤', status: 'validated' },
+  ];
+  renderShowFilters(allShows);
+
+  allPlaces = [
+    { id:'p1', name:'Mallory Gabsi', place_type:'restaurant', is_permanent:true, city:'Paris', address:'28 Rue des Acacias, Paris 17e', lat:48.876754, lng:2.291518, description:'1 étoile Michelin. Restaurant du chef emblématique de Top Chef 2020.', website_url:'https://www.mallorygabsi.com', status:'validated', confidence_score:.97, season:11, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Mallory Gabsi',role:'candidate'} },
+    { id:'p2', name:'ANONA', place_type:'restaurant', is_permanent:true, city:'Paris', address:'80 Bd des Batignolles, Paris 17e', lat:48.881961, lng:2.318660, description:'1 étoile Michelin. Cuisine végétale gastronomique.', website_url:'https://www.restaurant-anona.fr', status:'validated', confidence_score:.95, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Thibaut Spiwack',role:'candidate'} },
+    { id:'p3', name:'La Scène', place_type:'restaurant', is_permanent:true, city:'Paris', address:'32 Av. Matignon, Paris 8e', lat:48.872063, lng:2.314563, description:'2 étoiles Michelin. Table de la gagnante de Top Chef saison 2.', website_url:'https://www.la-scene.paris', status:'validated', confidence_score:.99, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Stéphanie Le Quellec',role:'winner'} },
+    { id:'p4', name:'Ambos', place_type:'restaurant', is_permanent:true, city:'Paris', address:'38 Rue de Vaugirard, Paris 6e', lat:48.849320, lng:2.335223, description:'Cuisine multiculturelle Espagne-Thaïlande-Bretagne.', website_url:null, status:'validated', confidence_score:.88, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Pierre Chomet',role:'candidate'} },
+    { id:'p5', name:'Le Pincemin', place_type:'restaurant', is_permanent:true, city:'Versailles', address:'10 Bd du Roi, Versailles', lat:48.810498, lng:2.126419, description:'Restaurant gastronomique du gagnant de la saison 10.', website_url:'https://www.lepincemin.fr', status:'validated', confidence_score:.92, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Xavier Pincemin',role:'winner'} },
+    { id:'p6', name:'La Mutinerie', place_type:'restaurant', is_permanent:true, city:'Lyon', address:'123 Rue Bugeaud, Lyon 6e', lat:45.767073, lng:4.854430, description:'1 étoile Michelin 2023. Cuisine franco-japonaise.', website_url:'https://www.lamutinerie-restaurant.fr', status:'validated', confidence_score:.94, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Nicolas Seibold',role:'candidate'} },
+    { id:'p7', name:"L'Arrivage", place_type:'restaurant', is_permanent:true, city:'Sète', address:"13-15 Rue André Portes, Sète", lat:43.401962, lng:3.695930, description:'1 étoile Michelin. Cuisine méditerranéenne à Sète.', website_url:null, status:'validated', confidence_score:.93, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Jordan Yuste',role:'candidate'} },
+    { id:'p8', name:'La Mirande', place_type:'restaurant', is_permanent:true, city:'Avignon', address:"4 Pl. de l'Amirande, Avignon", lat:43.950097, lng:4.807731, description:'1 étoile Michelin. Au pied du Palais des Papes.', website_url:'https://www.la-mirande.fr', status:'pending', confidence_score:.72, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:{full_name:'Florent Pietravalle',role:'candidate'} },
+    { id:'p9', name:'La Bâcove', place_type:'restaurant', is_permanent:true, city:'Saint-Omer', address:'8 Rue Caventou, Saint-Omer', lat:50.748260, lng:2.255360, description:'Note 4.9/5. Restaurant gastronomique dans le Pas-de-Calais.', website_url:null, status:'validated', confidence_score:.96, shows:{name:'Top Chef',color_hex:'#FF4C00',emoji:'👨‍🍳'}, people:null },
+    { id:'p10', name:'Péninsule de Caramoan', place_type:'filming_location', is_permanent:true, city:'Caramoan', country:'Philippines', address:'Camarines Sur, Philippines', lat:13.779700, lng:123.878300, description:'Lieu de tournage emblématique de Koh-Lanta, saisons récentes.', website_url:null, status:'validated', confidence_score:.99, shows:{name:'Koh-Lanta',color_hex:'#00B890',emoji:'🌴'}, people:null },
+    { id:'p11', name:'Zénith de Paris', place_type:'venue', is_permanent:true, city:'Paris', address:'211 Av. Jean Jaurès, Paris 19e', lat:48.893400, lng:2.389500, description:'Salle de concerts pour les lives de The Voice.', website_url:'https://www.zenith-paris.com', status:'validated', confidence_score:.91, shows:{name:'The Voice',color_hex:'#6C47FF',emoji:'🎤'}, people:null },
+    { id:'p12', name:'Concert Vianney — Bordeaux', place_type:'concert', is_permanent:false, city:'Bordeaux', address:'Arkéa Arena, Bordeaux', lat:44.864590, lng:-0.575780, description:'Concert de Vianney, coach de The Voice, dans le cadre de sa tournée 2025.', website_url:'https://www.vianney-officiel.com/tournee', status:'uncertain', confidence_score:.38, event_date:'2025-09-15', shows:{name:'The Voice',color_hex:'#6C47FF',emoji:'🎤'}, people:{full_name:'Vianney',role:'coach'} },
+  ];
+  renderAll();
+}
+
+// ===================== HELPERS =====================
+function placeTypeLabel(t) {
+  return { restaurant:'Restaurant', filming_location:'Tournage', studio:'Studio', concert:'Concert', event:'Événement', popup:'Pop-up', venue:'Salle', other:'Autre' }[t] || t;
+}
+function roleLabel(r) {
+  return { winner:'Gagnant·e', finalist:'Finaliste', candidate:'Candidat·e', host:'Animateur·ice', jury:'Jury', coach:'Coach', presenter:'Présentateur·ice', recurring_guest:'Invité·e récurrent·e' }[r] || r;
+}
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+}
+
+// ===================== INIT =====================
+loadShows();
+</script>
+</body>
+</html>
