@@ -5,7 +5,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,7 +31,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini', raw: data });
     }
 
-    // Gemini peut retourner plusieurs parts — on cherche le texte dans tous
     const parts = data.candidates?.[0]?.content?.parts || [];
     const text = parts
       .filter(p => p.text)
