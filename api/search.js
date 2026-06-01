@@ -12,7 +12,6 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tools: [{ googleSearch: {} }],
           contents: [
             {
               role: 'user',
@@ -33,34 +32,24 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini' });
     }
 
-    // Log complet pour debug
     const candidate = data.candidates?.[0];
     const parts = candidate?.content?.parts || [];
-    
-    console.log('Parts count:', parts.length);
-    console.log('Finish reason:', candidate?.finishReason);
-    parts.forEach((p, i) => {
-      console.log(`Part ${i} keys:`, Object.keys(p));
-      if (p.text) console.log(`Part ${i} text (first 200):`, p.text.slice(0, 200));
-    });
 
-    // Collecte tout le texte de tous les parts
-    const allText = parts
-      .filter(p => p.text)
-      .map(p => p.text)
-      .join('\n');
+    console.log('Finish reason:', candidate?.finishReason);
+    console.log('Parts count:', parts.length);
+    if (parts[0]?.text) console.log('First part (200):', parts[0].text.slice(0, 200));
+
+    const allText = parts.filter(p => p.text).map(p => p.text).join('\n');
 
     if (!allText) {
-      return res.status(500).json({ 
-        error: 'Aucun texte trouvé',
+      return res.status(500).json({
+        error: 'Aucun texte',
         finish_reason: candidate?.finishReason,
-        parts_count: parts.length,
-        parts_keys: parts.map(p => Object.keys(p))
+        safety: candidate?.safetyRatings
       });
     }
 
-    // Extrait le JSON
-    const match = allText.match(/\{[\s\S]*?"found"[\s\S]*?\}(?=\s*$|\s*```)/);
+    const match = allText.match(/\{[\s\S]*?"found"[\s\S]*\}/);
     const clean = match ? match[0] : allText.replace(/```json|```/g, '').trim();
 
     return res.status(200).json({ text: clean });
