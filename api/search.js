@@ -28,26 +28,36 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini', status: response.status });
+      return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini' });
     }
 
+    const parts = data.candidates?.[0]?.content?.parts || [];
+
+    // Cherche uniquement le premier part qui contient du JSON
     let text = '';
-    const candidates = data.candidates || [];
-    for (const candidate of candidates) {
-      const parts = candidate?.content?.parts || [];
+    for (const part of parts) {
+      if (part.text && part.text.includes('"found"')) {
+        text = part.text;
+        break;
+      }
+    }
+
+    // Fallback : prend le premier part avec du texte
+    if (!text) {
       for (const part of parts) {
-        if (part.text) text += part.text;
+        if (part.text) { text = part.text; break; }
       }
     }
 
     if (!text) {
-      return res.status(500).json({
-        error: 'Réponse vide',
-        debug: JSON.stringify(candidates[0]).slice(0, 800)
-      });
+      return res.status(500).json({ error: 'Réponse vide', parts_count: parts.length });
     }
 
-    return res.status(200).json({ text });
+    // Extrait uniquement le premier bloc JSON valide
+    const match = text.match(/\{[\s\S]*?"found"[\s\S]*\}/);
+    const clean = match ? match[0] : text.replace(/```json|```/g, '').trim();
+
+    return res.status(200).json({ text: clean });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
