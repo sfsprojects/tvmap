@@ -4,9 +4,9 @@ export default async function handler(req, res) {
   const { query, systemPrompt } = req.body;
 
   const models = [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-pro-latest',
-    'gemini-1.0-pro'
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-1.5-flash-001'
   ];
 
   let lastError = null;
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       const data = await response.json();
 
       if (response.status === 429 || response.status === 404) {
-        lastError = `${model} → ${response.status}`;
+        lastError = `${model} → ${response.status}: ${data?.error?.message}`;
         continue;
       }
 
