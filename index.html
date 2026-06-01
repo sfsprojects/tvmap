@@ -772,36 +772,41 @@ async function triggerAiSearch() {
   btn.disabled = true;
   document.getElementById('ai-status-text').textContent = 'Recherche en cours…';
 
-  const systemPrompt = `Tu es l'assistant de TVMAP, un site qui recense les lieux liés aux personnalités des émissions de télévision françaises (restaurants, concerts, tournages, etc.).
+  const systemPrompt = `Tu es l'assistant de TVMAP, un site qui recense les LIEUX physiques liés aux personnalités des émissions de télévision françaises.
 
-Quand un utilisateur cherche des informations, tu dois :
-1. Chercher sur internet les informations les plus récentes
-2. Ne répondre que si tu trouves des sources fiables
-3. Retourner un JSON strict avec ce format :
+OBJECTIF : trouver des LIEUX (restaurants, salles de concert, boutiques, lieux de tournage...) associés à la personnalité ou l'émission mentionnée. Pas juste identifier la personne.
+
+Exemples :
+- "gagnant Top Chef 2024" → cherche le restaurant ouvert par le gagnant
+- "Philippe Etchebest" → cherche ses restaurants (Quatrième Mur, etc.)
+- "Vianney The Voice" → cherche ses concerts à venir
+- "Koh-Lanta" → cherche les lieux de tournage
+
+Réponds UNIQUEMENT avec ce JSON, sans texte avant ou après :
 {
-  "found": true/false,
+  "found": true,
   "confidence": 0.0-1.0,
   "places": [{
-    "name": "...",
+    "name": "Nom du lieu (pas de la personne)",
     "place_type": "restaurant|concert|event|filming_location|studio|popup|venue|other",
-    "is_permanent": true/false,
-    "address": "...",
-    "city": "...",
+    "is_permanent": true,
+    "address": "adresse complète",
+    "city": "ville",
     "country": "France",
     "lat": null,
     "lng": null,
-    "description": "...",
-    "website_url": "URL du site officiel ou billetterie, null si introuvable",
-    "person_name": "...",
-    "show_name": "...",
+    "description": "description courte et lien avec l'émission",
+    "website_url": "site officiel ou null",
+    "person_name": "nom de la personnalité",
+    "show_name": "nom de l'émission",
     "season": null,
     "event_date": "YYYY-MM-DD ou null",
     "sources": [{"url": "...", "title": "...", "excerpt": "...", "source_type": "article|official|social|wiki|other"}]
   }],
-  "message": "Message à afficher à l'utilisateur"
+  "message": "message court pour l'utilisateur"
 }
-Si tu n'es pas sûr d'une information, mets confidence < 0.5 et indique-le dans message.
-Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
+Si aucun lieu trouvé : { "found": false, "confidence": 0, "places": [], "message": "explication" }
+confidence < 0.6 si incertain.`;
 
   try {
     const resp = await fetch('/api/search', {
@@ -869,6 +874,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
 
 async function submitAiResults(query, result) {
   try {
+    // 1. Enregistrer la tâche IA
     await fetch(`${SUPABASE_URL}/rest/v1/ai_tasks`, {
       method: 'POST',
       headers: {
@@ -885,7 +891,72 @@ async function submitAiResults(query, result) {
         requested_by: 'user'
       })
     });
-  } catch(e) { console.warn('Impossible de sauvegarder la tâche IA:', e); }
+
+    // 2. Insérer chaque lieu dans places
+    for (const p of result.places || []) {
+      const status = (result.confidence || 0) >= 0.75 ? 'pending' : 'uncertain';
+      const showMatch = allShows.find(s =>
+        s.name.toLowerCase().includes((p.show_name || '').toLowerCase()) ||
+        (p.show_name || '').toLowerCase().includes(s.name.toLowerCase())
+      );
+
+      const placeResp = await fetch(`${SUPABASE_URL}/rest/v1/places`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          name: p.name,
+          place_type: p.place_type || 'other',
+          is_permanent: p.is_permanent !== false,
+          address: p.address || null,
+          city: p.city || null,
+          country: p.country || 'France',
+          lat: p.lat || null,
+          lng: p.lng || null,
+          description: p.description || null,
+          website_url: p.website_url || null,
+          season: p.season || null,
+          event_date: p.event_date || null,
+          status,
+          confidence_score: result.confidence || 0,
+          show_id: showMatch?.id || null,
+          added_by: 'ai'
+        })
+      });
+
+      if (placeResp.ok) {
+        const [newPlace] = await placeResp.json();
+        // 3. Insérer les sources
+        if (newPlace?.id && p.sources?.length) {
+          await fetch(`${SUPABASE_URL}/rest/v1/place_sources`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(p.sources.map(s => ({
+              place_id: newPlace.id,
+              url: s.url || '',
+              title: s.title || null,
+              excerpt: s.excerpt || null,
+              source_type: s.source_type || 'other',
+              is_current: true
+            })))
+          });
+        }
+      }
+    }
+
+    // 4. Recharger la map
+    await loadPlaces(activeFilter === 'all' ? 'all' : activeFilter);
+
+  } catch(e) { console.warn('Erreur sauvegarde:', e); }
 }
 
 // ===================== DEMO DATA =====================
