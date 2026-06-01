@@ -3,62 +3,57 @@ export default async function handler(req, res) {
 
   const { query, systemPrompt } = req.body;
 
-  const models = [
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-1.5-flash-001'
-  ];
-
-  let lastError = null;
-
-  for (const model of models) {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tools: [{ google_search: {} }],
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: systemPrompt + '\n\nRequête : ' + query }]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 2048
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tools: [{ google_search: {} }],
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: systemPrompt + '\n\nRequête : ' + query }]
             }
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.status === 429 || response.status === 404) {
-        lastError = `${model} → ${response.status}: ${data?.error?.message}`;
-        continue;
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2048
+          }
+        })
       }
+    );
 
-      if (!response.ok) {
-        return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini', model });
-      }
+    const data = await response.json();
 
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      const text = parts.filter(p => p.text).map(p => p.text).join('');
-
-      if (!text) {
-        return res.status(500).json({ error: 'Réponse vide', model, raw: data });
-      }
-
-      return res.status(200).json({ text, model });
-
-    } catch (err) {
-      lastError = err.message;
-      continue;
+    if (!response.ok) {
+      return res.status(500).json({ error: data?.error?.message || 'Erreur Gemini' });
     }
-  }
 
-  res.status(500).json({ error: 'Tous les modèles ont échoué', detail: lastError });
-}
+    // Cherche le texte dans toute la structure de la réponse
+    let text = '';
+    const candidates = data.candidates || [];
+    for (const candidate of candidates) {
+      const parts = candidate?.content?.parts || [];
+      for (const part of parts) {
+        if (part.text) text += part.text;
+        // gemini-2.5 peut aussi mettre le texte dans executableCode ou autre
+        if (part.executableCode?.code) text += part.executableCode.code;
+      }
+    }
+
+    // Log la structure pour debug
+    if (!text) {
+      return res.status(500).json({
+        error: 'Réponse vide',
+        candidates_count: candidates.length,
+        first_candidate: JSON.stringify(candidates[0]).slice(0, 500)
+      });
+    }
+
+    return res.status(200).json({ text });
+
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
