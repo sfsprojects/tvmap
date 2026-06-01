@@ -817,7 +817,11 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
 
     let result;
     try {
-      result = JSON.parse(data.text.replace(/```json|```/g, '').trim());
+      // Gemini peut retourner le JSON plusieurs fois ou avec des balises — on prend le premier bloc valide
+      const raw = data.text;
+      const jsonMatch = raw.match(/\{[\s\S]*"found"[\s\S]*\}/);
+      const cleaned = jsonMatch ? jsonMatch[0] : raw.replace(/```json|```/g, '').trim();
+      result = JSON.parse(cleaned);
     } catch(e) {
       document.getElementById('ai-result').textContent = data.text;
       return;
