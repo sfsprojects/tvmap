@@ -772,14 +772,7 @@ async function triggerAiSearch() {
   btn.disabled = true;
   document.getElementById('ai-status-text').textContent = 'Recherche en cours…';
 
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: `Tu es l'assistant de TVMAP, un site qui recense les lieux liés aux personnalités des émissions de télévision françaises (restaurants, concerts, tournages, etc.).
+  const systemPrompt = `Tu es l'assistant de TVMAP, un site qui recense les lieux liés aux personnalités des émissions de télévision françaises (restaurants, concerts, tournages, etc.).
 
 Quand un utilisateur cherche des informations, tu dois :
 1. Chercher sur internet les informations les plus récentes
@@ -808,23 +801,25 @@ Quand un utilisateur cherche des informations, tu dois :
   "message": "Message à afficher à l'utilisateur"
 }
 Si tu n'es pas sûr d'une information, mets confidence < 0.5 et indique-le dans message.
-Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`,
-        messages: [{ role: 'user', content: query }],
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }]
-      })
+Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
+
+  try {
+    const resp = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, systemPrompt })
     });
 
     const data = await resp.json();
     document.getElementById('ai-status').style.display = 'none';
 
-    const textBlock = data.content?.find(b => b.type === 'text');
-    if (!textBlock) throw new Error('Pas de réponse IA');
+    if (!data.text) throw new Error(data.error?.message || 'Pas de réponse IA');
 
     let result;
     try {
-      result = JSON.parse(textBlock.text.replace(/```json|```/g, '').trim());
+      result = JSON.parse(data.text.replace(/```json|```/g, '').trim());
     } catch(e) {
-      document.getElementById('ai-result').textContent = textBlock.text;
+      document.getElementById('ai-result').textContent = data.text;
       return;
     }
 
