@@ -5,8 +5,6 @@ export default async function handler(req, res) {
 
   const { query, systemPrompt } = req.body;
 
-  // Essai 1 : avec googleSearch (web temps réel)
-  // Essai 2 : sans googleSearch (connaissances internes) si le premier échoue
   const attempts = [
     { model: 'gemini-2.5-flash', useSearch: true },
     { model: 'gemini-2.5-flash', useSearch: false },
@@ -32,18 +30,40 @@ export default async function handler(req, res) {
       const parts = data.candidates?.[0]?.content?.parts || [];
       if (!parts.length) continue;
 
+      // Collecter tout le texte
       const allText = parts.filter(p => p.text).map(p => p.text).join('');
       if (!allText) continue;
 
-      const match = allText.match(/\{[\s\S]*?"found"[\s\S]*\}/);
-      const clean = match ? match[0] : allText.replace(/```json|```/g, '').trim();
+      // Nettoyer : supprimer balises markdown
+      let clean = allText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
-      return res.status(200).json({ text: clean, usedSearch: attempt.useSearch, model: attempt.model });
+      // Extraire entre la première { et la dernière } pour éviter le texte parasite
+      const start = clean.indexOf('{');
+      const end = clean.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        clean = clean.slice(start, end + 1);
+      }
+
+      // Vérifier que c'est du JSON valide avec "found"
+      if (!clean.includes('"found"')) continue;
+
+      // Valider le JSON avant d'envoyer
+      try {
+        JSON.parse(clean);
+      } catch(e) {
+        continue;
+      }
+
+      return res.status(200).json({
+        text: clean,
+        usedSearch: attempt.useSearch,
+        model: attempt.model
+      });
 
     } catch(e) {
       continue;
     }
   }
 
-  return res.status(500).json({ error: 'Tous les modèles ont échoué' });
+  return res.status(500).json({ error: 'Recherche impossible — réessayez.' });
 }
