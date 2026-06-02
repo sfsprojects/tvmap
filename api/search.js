@@ -30,32 +30,12 @@ export default async function handler(req, res) {
       const parts = data.candidates?.[0]?.content?.parts || [];
       if (!parts.length) continue;
 
-      // Collecter tout le texte
       const allText = parts.filter(p => p.text).map(p => p.text).join('');
-      if (!allText) continue;
+      if (!allText || !allText.includes('"found"')) continue;
 
-      // Nettoyer : supprimer balises markdown
-      let clean = allText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-
-      // Extraire entre la première { et la dernière } pour éviter le texte parasite
-      const start = clean.indexOf('{');
-      const end = clean.lastIndexOf('}');
-      if (start !== -1 && end !== -1 && end > start) {
-        clean = clean.slice(start, end + 1);
-      }
-
-      // Vérifier que c'est du JSON valide avec "found"
-      if (!clean.includes('"found"')) continue;
-
-      // Valider le JSON avant d'envoyer
-      try {
-        JSON.parse(clean);
-      } catch(e) {
-        continue;
-      }
-
+      // Envoyer le texte brut — le parsing se fait côté client
       return res.status(200).json({
-        text: clean,
+        text: allText,
         usedSearch: attempt.useSearch,
         model: attempt.model
       });
