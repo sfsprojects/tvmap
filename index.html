@@ -833,13 +833,25 @@ confidence < 0.6 si incertain.`;
 
     let result;
     try {
-      // Gemini peut retourner le JSON plusieurs fois ou avec des balises — on prend le premier bloc valide
       const raw = data.text;
-      const jsonMatch = raw.match(/\{[\s\S]*"found"[\s\S]*\}/);
-      const cleaned = jsonMatch ? jsonMatch[0] : raw.replace(/```json|```/g, '').trim();
-      result = JSON.parse(cleaned);
+      // Stratégie 1 : extraire le premier objet JSON complet contenant "found"
+      const jsonMatch = raw.match(/\{[\s\S]*?"found"[\s\S]*?\}(?=\s*$|\s*\n\s*[^,\{\[])/);
+      // Stratégie 2 : nettoyer les balises markdown et parser
+      const cleaned = jsonMatch
+        ? jsonMatch[0]
+        : raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      // Stratégie 3 : extraire entre la première { et la dernière }
+      const lastResort = cleaned.includes('"found"')
+        ? cleaned
+        : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+      result = JSON.parse(lastResort);
     } catch(e) {
-      document.getElementById('ai-result').textContent = data.text;
+      // Parsing impossible — afficher message propre, pas le JSON brut
+      document.getElementById('ai-result').innerHTML = `
+        <div style="color:var(--muted);font-size:12px;line-height:1.6;">
+          La recherche a abouti mais la réponse n'a pas pu être traitée.<br>
+          <span style="color:var(--muted2);font-size:11px;">Essayez de reformuler votre recherche.</span>
+        </div>`;
       return;
     }
 
